@@ -4,6 +4,7 @@ class Crystal::Doc::Generator
   @base_dir : String
   @is_crystal_repo : Bool
   @repository : String? = nil
+  @git_tags : Array(String)?
   getter repository_name = ""
 
   # Adding a flag and associated css class will add support in parser
@@ -74,9 +75,9 @@ class Crystal::Doc::Generator
       body = ""
     end
 
-    File.write File.join(@output_dir, "index.html"), MainTemplate.new(body, types, repository_name, @canonical_base_url)
+    File.write File.join(@output_dir, "index.html"), MainTemplate.new(body, types, repository_name, @canonical_base_url, git_tags)
 
-    main_index = Main.new(raw_body, Type.new(self, @program), repository_name)
+    main_index = Main.new(raw_body, Type.new(self, @program, git_tags), repository_name)
     File.write File.join(@output_dir, "index.json"), main_index
     File.write File.join(@output_dir, "search-index.js"), main_index.to_jsonp
   end
@@ -97,7 +98,7 @@ class Crystal::Doc::Generator
         filename = File.join(dir, "#{type.name}.html")
       end
 
-      File.write filename, TypeTemplate.new(type, all_types, @canonical_base_url)
+      File.write filename, TypeTemplate.new(type, all_types, @canonical_base_url, git_tags)
 
       next if type.program?
 
@@ -190,7 +191,7 @@ class Crystal::Doc::Generator
   end
 
   def type(type)
-    @types[type] ||= Type.new(self, type)
+    @types[type] ||= Type.new(self, type, git_tags)
   end
 
   def method(type, method, class_method)
@@ -324,6 +325,10 @@ class Crystal::Doc::Generator
     info = GIT_REMOTE_PATTERNS[origin.regex]
     @repository = info[:repository] % {user: user, repo: repo, rev: rev}
     @repository_name = info[:repo_name] % {user: user, repo: repo}
+  end
+
+  def git_tags
+    @git_tags ||= (`git tag`.try(&.split("\n")).sort.reverse || [] of String)
   end
 
   def source_link(node)

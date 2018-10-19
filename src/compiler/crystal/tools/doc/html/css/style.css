@@ -58,7 +58,7 @@ body {
   line-height: 1.2;
 }
 
-.sidebar .search-box {
+.sidebar .search-box, .sidebar .version-select {
   padding: 8px 9px;
 }
 
@@ -623,4 +623,7 @@ span.flag.purple {
   clear: left;
   margin-left: -100px;
   margin-right: 12px;
+}
+.version-select select {
+  width: 100%;
 }
