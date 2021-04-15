@@ -222,3 +222,8 @@ ul.unstyled {
 ul.unstyled li {
   list-style-type: none;
 }
+
+.invisiblePrelude {
+  position: fixed;
+  right: 100vw;
+}

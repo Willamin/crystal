@@ -20,12 +20,19 @@ $(function(){
              (Playground.hasStorage ? localStorage.lastCode : null) ||
               Environment.defaultSource;
 
+  var preludeCode = (Playground.hasStorage ? sessionStorage.lastPreludeCode : null) ||
+                     Environment.preludeSource ||
+                    (Playground.hasStorage ? localStorage.lastPreludeCode : null) ||
+                     Environment.defaultPreludeSource;
+
   var session = new Playground.Session({
     container: $('#mainEditorContainer'),
     stdout: $('#mainOutput'),
     outputIndicator: $('#mainOutputIndicator'),
     source: code,
     autofocus: true,
+    preludeContainer: $('#preludeEditorContainer'),
+    preludeSource: preludeCode
   });
   var buttons = new Playground.RunButtons({
     container: $('#mainButtonsContainer')
@@ -45,6 +52,18 @@ $(function(){
   };
   $(window).on("unload", function(){
     saveAsLastCode();
+  });
+
+  function saveAsLastPreludeCode() {
+    if(typeof(Storage) !== "undefined") {
+      localStorage.lastPreludeCode = sessionStorage.lastPreludeCode = session.getPreludeSource();
+    }
+  }
+  session.onChange = function() {
+    saveAsLastPreludeCode();
+  };
+  $(window).on("unload", function(){
+    saveAsLastPreludeCode();
   });
 
   $("#saveAsFile").click(function(e) {

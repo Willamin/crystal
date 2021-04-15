@@ -164,17 +164,27 @@ Playground.OutputIndicator = function(dom) {
 }
 
 Playground.Inspector = function(session, line) {
+  preludeOffset = session.preludeEditor.getValue().split("\n").length
+  if (line <= preludeOffset) {
+    offsetEditor = session.preludeEditor;
+    offsetSidebarDom = session.preludeSidebarDom;
+  } else {
+    offsetEditor = session.editor;
+    offsetSidebarDom = session.sidebarDom;
+    line = line - preludeOffset;
+  }
+
   this.lineDom = $("<div>")
       .addClass("truncate")
-      .css("top", session.editor.heightAtLine(line-1, "local") + "px")
+      .css("top", offsetEditor.heightAtLine(line-1, "local") + "px")
       .css("cursor", "pointer");
-  session.sidebarDom.append(this.lineDom);
+  offsetSidebarDom.append(this.lineDom);
 
   var INSPECTOR_HOVER_CLASS = "inspector-hover";
   this.lineDom.hover(function(){
-    session.editor.addLineClass(line-1, "wrap", INSPECTOR_HOVER_CLASS);
+    offsetEditor.addLineClass(line-1, "wrap", INSPECTOR_HOVER_CLASS);
   }.bind(this), function(){
-    session.editor.removeLineClass(line-1, "wrap", INSPECTOR_HOVER_CLASS);
+    offsetEditor.removeLineClass(line-1, "wrap", INSPECTOR_HOVER_CLASS);
   }.bind(this));
 
   this.messages = [];
@@ -268,6 +278,11 @@ Playground.Inspector = function(session, line) {
 Playground.Session = function(options) {
   options = $.extend({}, {autofocus: false, source: ''}, options);
 
+  if (window.playgroundSessions == null) {
+    window.playgroundSessions = [];
+  }
+  window.playgroundSessions.push(this);
+
   // render components
   options.container.append(
     cdiv("col s7").append(
@@ -281,6 +296,25 @@ Playground.Session = function(options) {
         .append(this.sidebarDom = cdiv("sidebar"))
       )
   );
+  options.preludeContainer.append(
+    cdiv("col s7").append(
+      this.preludeEditorWrapper = cdiv("card editor-wrapper")
+        .append(cdiv("CodeMirror-gutters phantom"))
+        .append(this.preludeEditorDom = cdiv("editor"))
+      )
+  ).append(
+    cdiv("col s5").append(
+      this.preludeSidebarWrapper = cdiv("card card-plain sidebar-wrapper")
+        .append(this.preludeSidebarDom = cdiv("sidebar"))
+      )
+  );
+
+  window.preludeContainer = options.preludeContainer;
+  $('#showPreludeBtn').click(function() {
+    options.preludeContainer.toggleClass("invisiblePrelude");
+    this._matchEditorSidebarHeight();
+  })
+
   this.isRunning = false;
   this.stdout = options.stdout;
   this.stdoutRawContent = "";
@@ -297,6 +331,19 @@ Playground.Session = function(options) {
     value: options.source
   });
   this.editor._playgroundSession = this;
+
+  this.preludeEditor = CodeMirror(this.preludeEditorDom[0], {
+    mode: 'crystal',
+    theme: 'neat',
+    lineNumbers: true,
+    autofocus: options.autofocus,
+    tabSize: 2,
+    viewportMargin: Infinity,
+    dragDrop: false, // dragDrop functionality is implemented to capture drop anywhere and replace source
+    value: options.preludeSource
+  });
+
+  this.preludeEditor._playgroundSession = this;
 
   this.connect = function() {
     var socketProtocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -418,7 +465,7 @@ Playground.Session = function(options) {
 
     this.ws.send(JSON.stringify({
       type: "run",
-      source: this.editor.getValue(),
+      source: this.preludeEditor.getValue() + "\n" + this.editor.getValue(),
       tag: this.runTag
     }));
 
@@ -436,8 +483,16 @@ Playground.Session = function(options) {
     return this.editor.getValue();
   }.bind(this);
 
+  this.getPreludeSource = function() {
+    return this.preludeEditor.getValue();
+  }.bind(this);
+
   this.setSource = function(value) {
     this.editor.setValue(value);
+  }.bind(this);
+
+  this.setPreludeSource = function(value) {
+    return this.preludeEditor.setValue(value);
   }.bind(this);
 
   this.bindRunButtons = function(runButtons, options) {
@@ -567,6 +622,7 @@ Playground.Session = function(options) {
   this.inspectors = {};
   this._clearInspectors = function() {
     this.sidebarDom.empty();
+    this.preludeSidebarDom.empty();
     this.inspectors = {};
   }.bind(this);
 
@@ -596,6 +652,7 @@ Playground.Session = function(options) {
   this._matchEditorSidebarHeight = function() {
     window.setTimeout(function(){
       this.sidebarWrapper.height(this.editorWrapper.height());
+      this.preludeSidebarWrapper.height(this.preludeEditorWrapper.height());
     }.bind(this),0)
   }.bind(this);
 
